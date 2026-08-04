@@ -1,21 +1,22 @@
 """
 Backend for the Kids Learning Platform survey.
 
-Receives the submitted survey as JSON, formats it, and emails it via SMTP.
+Receives the submitted survey as JSON, formats it, and emails it via the
+Resend API (https://resend.com) over plain HTTPS. We use an HTTP-based email
+API instead of raw SMTP because many free hosting tiers (Render, Railway,
+etc.) block outbound SMTP ports entirely - HTTPS is never blocked.
 
 Run locally:
     pip install -r requirements.txt
-    cp .env.example .env      # then fill in your SMTP details
+    cp .env.example .env      # then fill in your Resend API key
     uvicorn app:app --reload --port 5000
 """
 
 import os
-import smtplib
 from datetime import datetime
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from typing import List, Optional
 
+import requests
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,7 +27,7 @@ load_dotenv()
 
 app = FastAPI(title="Little Learners Survey API")
 
-# allow the React dev server to call this API
+# allow the React dev server / deployed frontend to call this API
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -34,12 +35,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- SMTP configuration (set these in a .env file, see .env.example) ---
-SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USER = os.getenv("SMTP_USER")          # the mailbox that sends the email
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")  # app password, not your login password
-MAIL_TO = os.getenv("MAIL_TO", SMTP_USER)   # who receives the survey results
+# --- Resend configuration (set these in a .env file, see .env.example) ---
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+# Resend's shared test sender works out of the box with no domain setup.
+# Swap it for something like "surveys@yourdomain.com" once you verify a
+# domain in the Resend dashboard.
+RESEND_FROM = os.getenv("RESEND_FROM", "onboarding@resend.dev")
+MAIL_TO = os.getenv("MAIL_TO")
 
 # Fields we expect from the frontend, and the friendly labels used in the email
 FIELD_LABELS = {
@@ -71,39 +73,53 @@ class SurveyPayload(BaseModel):
     feedback: Optional[str] = ""
 
 
-def build_email_body(data: dict) -> str:
-    lines = [
-        "New survey response from the Kids Learning Platform",
-        "=" * 52,
-        f"Submitted: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-        "",
-    ]
+def build_email_html(data: dict) -> str:
+    rows = []
     for key, label in FIELD_LABELS.items():
         value = data.get(key, "")
         if isinstance(value, list):
             value = ", ".join(value) if value else "-"
         if value in ("", None, 0):
             value = "-"
-        lines.append(f"{label}: {value}")
-    return "\n".join(lines)
-
-
-def send_email(subject: str, body: str) -> None:
-    if not SMTP_USER or not SMTP_PASSWORD:
-        raise RuntimeError(
-            "SMTP_USER / SMTP_PASSWORD are not set. Add them to backend/.env"
+        rows.append(
+            f"<tr><td style='padding:6px 12px;font-weight:600;color:#1F2A44;"
+            f"border-bottom:1px solid #eee;'>{label}</td>"
+            f"<td style='padding:6px 12px;color:#333;border-bottom:1px solid #eee;'>"
+            f"{value}</td></tr>"
         )
+    submitted = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    return f"""
+    <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;">
+      <h2 style="color:#1F2A44;">New survey response</h2>
+      <p style="color:#666;font-size:13px;">Submitted: {submitted}</p>
+      <table style="width:100%;border-collapse:collapse;">{''.join(rows)}</table>
+    </div>
+    """
 
-    msg = MIMEMultipart()
-    msg["From"] = SMTP_USER
-    msg["To"] = MAIL_TO
-    msg["Subject"] = subject
-    msg.attach(MIMEText(body, "plain"))
 
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-        server.starttls()
-        server.login(SMTP_USER, SMTP_PASSWORD)
-        server.sendmail(SMTP_USER, MAIL_TO, msg.as_string())
+def send_email(subject: str, html: str) -> None:
+    if not RESEND_API_KEY:
+        raise RuntimeError("RESEND_API_KEY is not set. Add it to backend/.env")
+    if not MAIL_TO:
+        raise RuntimeError("MAIL_TO is not set. Add it to backend/.env")
+
+    response = requests.post(
+        "https://api.resend.com/emails",
+        headers={
+            "Authorization": f"Bearer {RESEND_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "from": RESEND_FROM,
+            "to": [MAIL_TO],
+            "subject": subject,
+            "html": html,
+        },
+        timeout=15,
+    )
+
+    if response.status_code >= 400:
+        raise RuntimeError(f"Resend API error ({response.status_code}): {response.text}")
 
 
 @app.get("/api/health")
@@ -115,11 +131,11 @@ def health():
 def submit_survey(payload: SurveyPayload):
     data = payload.model_dump()
 
-    body = build_email_body(data)
+    html = build_email_html(data)
     subject = f"New Survey Response - {data.get('childName', 'Unknown Child')}"
 
     try:
-        send_email(subject, body)
+        send_email(subject, html)
     except Exception as exc:  # noqa: BLE001
         return JSONResponse(
             status_code=500,
