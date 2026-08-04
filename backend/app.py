@@ -82,7 +82,7 @@ def build_email_html(data: dict) -> str:
         ("🧒 Child's name", data.get("childName", "-")),
         ("🎂 Child's age", data.get("childAge", "-")),
         ("📚 Grade / class", data.get("grade", "-")),
-        ("⭐ Subjects the child enjoys", data.get("subjects", "-")),
+        ("⭐ Subjects the child enjoys", ", ".join(data.get("subjects", [])) or "-"),
         ("🎧 Favorite way to learn", data.get("learningStyle", "-")),
         ("⏱️ Average daily learning time", data.get("screenTime", "-")),
         ("😊 Enjoyment rating (1-5)", data.get("rating", "-")),
