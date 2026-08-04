@@ -103,7 +103,7 @@ def build_email_html(data: dict) -> str:
         """
         for label, value in rows
     )
-data["submitted_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    data["submitted_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     return f"""
     <html>
     <body style="margin:0; padding:0; background-color:#FDF6EC; font-family:'Segoe UI', Arial, sans-serif;">
