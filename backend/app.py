@@ -77,17 +77,17 @@ def build_email_html(data: dict) -> str:
     """Generates a colorful, kid-learning-themed HTML email for survey submissions."""
 
     rows = [
-        ("👤 Parent / Guardian name", data.get("parent_name", "-")),
-        ("📧 Parent / Guardian email", data.get("parent_email", "-")),
-        ("🧒 Child's name", data.get("child_name", "-")),
-        ("🎂 Child's age", data.get("child_age", "-")),
+        ("👤 Parent / Guardian name", data.get("parentName", "-")),
+        ("📧 Parent / Guardian email", data.get("parentEmail", "-")),
+        ("🧒 Child's name", data.get("childName", "-")),
+        ("🎂 Child's age", data.get("childAge", "-")),
         ("📚 Grade / class", data.get("grade", "-")),
         ("⭐ Subjects the child enjoys", data.get("subjects", "-")),
-        ("🎧 Favorite way to learn", data.get("learning_style", "-")),
-        ("⏱️ Average daily learning time", data.get("daily_time", "-")),
-        ("😊 Enjoyment rating (1-5)", data.get("enjoyment_rating", "-")),
-        ("👍 Would recommend to other parents", data.get("would_recommend", "-")),
-        ("💬 Comments / suggestions", data.get("comments", "-")),
+        ("🎧 Favorite way to learn", data.get("learningStyle", "-")),
+        ("⏱️ Average daily learning time", data.get("screenTime", "-")),
+        ("😊 Enjoyment rating (1-5)", data.get("rating", "-")),
+        ("👍 Would recommend to other parents", data.get("recommend", "-")),
+        ("💬 Comments / suggestions", data.get("feedback", "-")),
     ]
 
     rows_html = "\n".join(
@@ -103,7 +103,7 @@ def build_email_html(data: dict) -> str:
         """
         for label, value in rows
     )
-
+data["submitted_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     return f"""
     <html>
     <body style="margin:0; padding:0; background-color:#FDF6EC; font-family:'Segoe UI', Arial, sans-serif;">
