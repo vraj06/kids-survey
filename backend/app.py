@@ -74,26 +74,90 @@ class SurveyPayload(BaseModel):
 
 
 def build_email_html(data: dict) -> str:
-    rows = []
-    for key, label in FIELD_LABELS.items():
-        value = data.get(key, "")
-        if isinstance(value, list):
-            value = ", ".join(value) if value else "-"
-        if value in ("", None, 0):
-            value = "-"
-        rows.append(
-            f"<tr><td style='padding:6px 12px;font-weight:600;color:#1F2A44;"
-            f"border-bottom:1px solid #eee;'>{label}</td>"
-            f"<td style='padding:6px 12px;color:#333;border-bottom:1px solid #eee;'>"
-            f"{value}</td></tr>"
-        )
-    submitted = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    """Generates a colorful, kid-learning-themed HTML email for survey submissions."""
+
+    rows = [
+        ("👤 Parent / Guardian name", data.get("parent_name", "-")),
+        ("📧 Parent / Guardian email", data.get("parent_email", "-")),
+        ("🧒 Child's name", data.get("child_name", "-")),
+        ("🎂 Child's age", data.get("child_age", "-")),
+        ("📚 Grade / class", data.get("grade", "-")),
+        ("⭐ Subjects the child enjoys", data.get("subjects", "-")),
+        ("🎧 Favorite way to learn", data.get("learning_style", "-")),
+        ("⏱️ Average daily learning time", data.get("daily_time", "-")),
+        ("😊 Enjoyment rating (1-5)", data.get("enjoyment_rating", "-")),
+        ("👍 Would recommend to other parents", data.get("would_recommend", "-")),
+        ("💬 Comments / suggestions", data.get("comments", "-")),
+    ]
+
+    rows_html = "\n".join(
+        f"""
+        <tr>
+          <td style="padding:14px 20px; font-weight:600; color:#4B3F72; font-size:14px; border-bottom:1px solid #F0E9FF; width:55%;">
+            {label}
+          </td>
+          <td style="padding:14px 20px; color:#333333; font-size:14px; border-bottom:1px solid #F0E9FF;">
+            {value}
+          </td>
+        </tr>
+        """
+        for label, value in rows
+    )
+
     return f"""
-    <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;">
-      <h2 style="color:#1F2A44;">New survey response</h2>
-      <p style="color:#666;font-size:13px;">Submitted: {submitted}</p>
-      <table style="width:100%;border-collapse:collapse;">{''.join(rows)}</table>
-    </div>
+    <html>
+    <body style="margin:0; padding:0; background-color:#FDF6EC; font-family:'Segoe UI', Arial, sans-serif;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#FDF6EC; padding:32px 0;">
+        <tr>
+          <td align="center">
+            <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff; border-radius:20px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.06);">
+
+              <!-- Header -->
+              <tr>
+                <td style="background:linear-gradient(135deg,#FF9A6C,#FFD36C); padding:32px 24px; text-align:center;">
+                  <div style="font-size:36px; margin-bottom:8px;">🌈✏️📖</div>
+                  <div style="font-size:22px; font-weight:800; color:#ffffff; letter-spacing:0.3px;">
+                    New Survey Response!
+                  </div>
+                  <div style="font-size:13px; color:#FFF3E0; margin-top:4px;">
+                    A parent just shared feedback about their little learner
+                  </div>
+                </td>
+              </tr>
+
+              <!-- Timestamp badge -->
+              <tr>
+                <td style="padding:20px 24px 0 24px;">
+                  <span style="display:inline-block; background:#EAF7EE; color:#2E7D4F; font-size:12px; font-weight:600; padding:6px 14px; border-radius:999px;">
+                    🕒 Submitted: {data.get("submitted_at", "-")}
+                  </span>
+                </td>
+              </tr>
+
+              <!-- Table -->
+              <tr>
+                <td style="padding:16px 24px 24px 24px;">
+                  <table width="100%" cellpadding="0" cellspacing="0" style="background:#FFFDF9; border-radius:14px; overflow:hidden; border:1px solid #F0E9FF;">
+                    {rows_html}
+                  </table>
+                </td>
+              </tr>
+
+              <!-- Footer -->
+              <tr>
+                <td style="background:#FFF6E9; padding:20px 24px; text-align:center;">
+                  <div style="font-size:13px; color:#A08B6F;">
+                    Sent automatically from <strong style="color:#FF9A6C;">LittleLearners</strong> 🧸
+                  </div>
+                </td>
+              </tr>
+
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
     """
 
 
