@@ -74,10 +74,15 @@ function App() {
     e.preventDefault();
     setStatus("sending");
     setErrorMsg("");
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000); // give up after 25s
+
     try {
       const res = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify(form),
       });
       const data = await res.json();
@@ -87,7 +92,13 @@ function App() {
       setStatus("success");
     } catch (err) {
       setStatus("error");
-      setErrorMsg(err.message);
+      setErrorMsg(
+        err.name === "AbortError"
+          ? "The server took too long to respond. If it's on a free hosting tier it may have been asleep — please try again."
+          : err.message
+      );
+    } finally {
+      clearTimeout(timeoutId);
     }
   };
 
